@@ -7,6 +7,10 @@ use App\Http\Requests\Task\UpdateTaskRequest;
 use App\Services\TaskService;
 use Illuminate\Http\JsonResponse;
 
+/*
+Controller: Se encarga de recibir las solicitudes HTTP, delegar el procesamiento y retornar las respuestas.
+No debe contener lógica de negocio ni lógica de acceso a datos.
+*/
 class TaskController extends Controller
 {
     private TaskService $taskService;

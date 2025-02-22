@@ -3,8 +3,13 @@
 namespace App\Repositories;
 
 use App\Models\Task;
+use App\Repositories\Contracts\TaskRepositoryInterface;
 
-class TaskRepository
+/*
+Repository: Se dedica a interactuar con la base de datos, es decir, realiza operaciones CRUD (crear, leer, actualizar, eliminar).
+Esto facilita cambiar la forma de acceder a los datos (por ejemplo, de Eloquent a SQL puro) sin modificar la lógica de negocio.
+*/
+class TaskRepository implements TaskRepositoryInterface
 {
     public function getAll()
     {
@@ -16,12 +21,12 @@ class TaskRepository
         return Task::findOrFail($id);
     }
 
-    public function create(array $data): Task
+    public function create(array $data)
     {
         return Task::create($data);
     }
 
-    public function update(int $id, array $data): Task
+    public function update(int $id, array $data)
     {
         $task = Task::findOrFail($id);
         $task->update($data);

@@ -2,13 +2,17 @@
 
 namespace App\Services;
 
-use App\Repositories\TaskRepository;
+use App\Repositories\Contracts\TaskRepositoryInterface;
 
+/*
+Service: Alberga la lógica de negocio, es decir, las reglas y procesos que definen el comportamiento de la aplicación.
+Permite centralizar la lógica y evitar duplicaciones.
+*/
 class TaskService
 {
-    private TaskRepository $taskRepo;
+    private TaskRepositoryInterface $taskRepo;
 
-    public function __construct(TaskRepository $taskRepo)
+    public function __construct(TaskRepositoryInterface $taskRepo)
     {
         $this->taskRepo = $taskRepo;
     }
