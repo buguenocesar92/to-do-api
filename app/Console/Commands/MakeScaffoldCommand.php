@@ -12,28 +12,94 @@ class MakeScaffoldCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'make:scaffold {name : El nombre del modelo (ej. Task)}';
+    protected $signature = 'make:scaffold {name : El nombre de la entidad (ej. Example)}';
 
     /**
      * La descripción del comando.
      *
      * @var string
      */
-    protected $description = 'Genera automáticamente la interfaz, el repositorio y el servicio para un modelo dado';
+    protected $description = 'Genera modelo, migración, controlador, interfaz, repositorio y servicio para una entidad dada';
 
     /**
      * Ejecuta el comando.
      */
     public function handle()
     {
+        // Convertir el argumento en StudlyCase para nombres de clases.
         $name = Str::studly($this->argument('name'));
+        $nameLower = Str::camel($name);
+        $controllerName = "{$name}Controller";
 
-        // Rutas de los archivos a generar.
+        // 1. Crear el modelo junto con la migración.
+        $this->call('make:model', [
+            'name'        => $name,
+            '--migration' => true,
+        ]);
+
+        // 2. Crear el controlador.
+        $this->call('make:controller', [
+            'name' => $controllerName,
+        ]);
+
+        // Sobrescribir el controlador con métodos CRUD.
+        $controllerPath = app_path("Http/Controllers/{$controllerName}.php");
+        $controllerContent = <<<EOT
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\\{$name}Service;
+use Illuminate\Http\Request;
+
+class {$controllerName} extends Controller
+{
+    protected {$name}Service \${$nameLower}Service;
+
+    public function __construct({$name}Service \${$nameLower}Service)
+    {
+        \$this->{$nameLower}Service = \${$nameLower}Service;
+    }
+
+    public function index()
+    {
+        \$data = \$this->{$nameLower}Service->getAll();
+        return response()->json(\$data);
+    }
+
+    public function store(Request \$request)
+    {
+        \$data = \$this->{$nameLower}Service->create(\$request->all());
+        return response()->json(\$data, 201);
+    }
+
+    public function show(\$id)
+    {
+        \$data = \$this->{$nameLower}Service->findById(\$id);
+        return response()->json(\$data);
+    }
+
+    public function update(Request \$request, \$id)
+    {
+        \$data = \$this->{$nameLower}Service->update(\$id, \$request->all());
+        return response()->json(\$data);
+    }
+
+    public function destroy(\$id)
+    {
+        \$this->{$nameLower}Service->delete(\$id);
+        return response()->json(['message' => '{$name} eliminado']);
+    }
+}
+EOT;
+        file_put_contents($controllerPath, $controllerContent);
+        $this->info("Controlador {$controllerName} generado exitosamente.");
+
+        // 3. Generar la interfaz, repositorio y servicio.
         $interfacePath = app_path("Repositories/Contracts/{$name}RepositoryInterface.php");
         $repositoryPath = app_path("Repositories/{$name}Repository.php");
         $servicePath = app_path("Services/{$name}Service.php");
 
-        // Crear directorios si no existen.
         if (!is_dir(app_path('Repositories/Contracts'))) {
             mkdir(app_path('Repositories/Contracts'), 0755, true);
         }
@@ -44,13 +110,11 @@ class MakeScaffoldCommand extends Command
             mkdir(app_path('Services'), 0755, true);
         }
 
-        // Verificar si los archivos ya existen.
         if (file_exists($interfacePath) || file_exists($repositoryPath) || file_exists($servicePath)) {
-            $this->error('Algunos de los archivos ya existen. Aborta la generación.');
+            $this->error('Algunos de los archivos de repositorio/servicio ya existen. Abortando la generación.');
             return;
         }
 
-        // Contenido de la interfaz.
         $interfaceContent = <<<EOT
 <?php
 
@@ -66,7 +130,6 @@ interface {$name}RepositoryInterface
 }
 EOT;
 
-        // Contenido del repositorio.
         $repositoryContent = <<<EOT
 <?php
 
@@ -107,7 +170,6 @@ class {$name}Repository implements {$name}RepositoryInterface
 }
 EOT;
 
-        // Contenido del servicio.
         $serviceContent = <<<EOT
 <?php
 
@@ -151,11 +213,27 @@ class {$name}Service
 }
 EOT;
 
-        // Escribir los archivos.
         file_put_contents($interfacePath, $interfaceContent);
         file_put_contents($repositoryPath, $repositoryContent);
         file_put_contents($servicePath, $serviceContent);
 
-        $this->info("Scaffold generado para el modelo {$name} exitosamente.");
+        $this->info("Scaffold generado para la entidad {$name} exitosamente.");
+
+        // 4. Actualizar AppServiceProvider para registrar la vinculación de la interfaz con el repositorio.
+        $providerPath = app_path("Providers/AppServiceProvider.php");
+        $providerContent = file_get_contents($providerPath);
+        $binding = "\$this->app->bind(\\App\\Repositories\\Contracts\\{$name}RepositoryInterface::class, \\App\\Repositories\\{$name}Repository::class);";
+
+        if (strpos($providerContent, $binding) === false) {
+            $providerContent = preg_replace(
+                '/(public function register\(\): void\s*\{\s*)/',
+                "$1\n        {$binding}\n",
+                $providerContent
+            );
+            file_put_contents($providerPath, $providerContent);
+            $this->info("Se ha registrado la vinculación en AppServiceProvider.");
+        } else {
+            $this->info("La vinculación ya existe en AppServiceProvider.");
+        }
     }
 }
