@@ -19,7 +19,7 @@ class MakeScaffoldCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Genera modelo, migración, controlador, interfaz, repositorio y servicio para una entidad dada';
+    protected $description = 'Genera modelo, migración, controlador, interfaz, repositorio y servicio para una entidad dada, agregando campos genéricos';
 
     /**
      * Ejecuta el comando.
@@ -36,6 +36,46 @@ class MakeScaffoldCommand extends Command
             'name'        => $name,
             '--migration' => true,
         ]);
+
+        // 1.1. Actualizar la migración con campos genéricos.
+        $tableName = Str::plural(Str::snake($name));
+        $migrationFiles = glob(database_path("migrations/*_create_{$tableName}_table.php"));
+        if (count($migrationFiles) > 0) {
+            $migrationPath = $migrationFiles[0];
+            $migrationContent = file_get_contents($migrationPath);
+
+            // Agregar campos genéricos justo después de la creación de la clave primaria.
+            $migrationContent = preg_replace(
+                '/(\$table->id\(\);)/',
+                "$1\n            \$table->string('name');\n            \$table->text('description')->nullable();\n            \$table->boolean('status')->default(true);",
+                $migrationContent
+            );
+            file_put_contents($migrationPath, $migrationContent);
+            $this->info("Migración actualizada con campos genéricos en {$migrationPath}.");
+        } else {
+            $this->error("No se encontró la migración para la tabla {$tableName}.");
+        }
+
+        // 1.2. Actualizar el modelo para agregar la propiedad fillable.
+        $modelPath = app_path("Models/{$name}.php");
+        if (!file_exists($modelPath)) {
+            // En algunos proyectos el modelo se crea en la raíz de app/
+            $modelPath = app_path("{$name}.php");
+        }
+        if (file_exists($modelPath)) {
+            $modelContent = file_get_contents($modelPath);
+            if (strpos($modelContent, 'protected $fillable') === false) {
+                $modelContent = preg_replace(
+                    '/(class\s+' . $name . '\s+extends\s+\S+\s*\{)/',
+                    "$1\n    protected \$fillable = ['name', 'description', 'status'];",
+                    $modelContent
+                );
+                file_put_contents($modelPath, $modelContent);
+                $this->info("Modelo {$name} actualizado con fillable.");
+            }
+        } else {
+            $this->error("No se encontró el modelo {$name}.");
+        }
 
         // 2. Crear el controlador.
         $this->call('make:controller', [
