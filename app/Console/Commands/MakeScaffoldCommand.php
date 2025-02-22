@@ -19,16 +19,18 @@ class MakeScaffoldCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Genera modelo, migración, controlador, interfaz, repositorio y servicio para una entidad dada, agregando campos genéricos';
+    protected $description = 'Genera modelo, migración, controlador, interfaz, repositorio, servicio y archivo de rutas para una entidad dada, con campos y rutas genéricas';
 
     /**
      * Ejecuta el comando.
      */
     public function handle()
     {
-        // Convertir el argumento en StudlyCase para nombres de clases.
+        // Convertir el argumento en StudlyCase para nombres de clases y en snake_case para rutas.
         $name = Str::studly($this->argument('name'));
         $nameLower = Str::camel($name);
+        $parameter = Str::snake($name); // Parámetro singular, ej: task
+        $prefix = Str::plural($parameter); // Prefijo/plural, ej: tasks
         $controllerName = "{$name}Controller";
 
         // 1. Crear el modelo junto con la migración.
@@ -37,14 +39,14 @@ class MakeScaffoldCommand extends Command
             '--migration' => true,
         ]);
 
-        // 1.1. Actualizar la migración con campos genéricos.
+        // 1.1 Actualizar la migración con campos genéricos.
         $tableName = Str::plural(Str::snake($name));
         $migrationFiles = glob(database_path("migrations/*_create_{$tableName}_table.php"));
         if (count($migrationFiles) > 0) {
             $migrationPath = $migrationFiles[0];
             $migrationContent = file_get_contents($migrationPath);
 
-            // Agregar campos genéricos justo después de la creación de la clave primaria.
+            // Insertar campos genéricos justo después de la definición de la clave primaria.
             $migrationContent = preg_replace(
                 '/(\$table->id\(\);)/',
                 "$1\n            \$table->string('name');\n            \$table->text('description')->nullable();\n            \$table->boolean('status')->default(true);",
@@ -56,7 +58,7 @@ class MakeScaffoldCommand extends Command
             $this->error("No se encontró la migración para la tabla {$tableName}.");
         }
 
-        // 1.2. Actualizar el modelo para agregar la propiedad fillable.
+        // 1.2 Actualizar el modelo para agregar la propiedad fillable.
         $modelPath = app_path("Models/{$name}.php");
         if (!file_exists($modelPath)) {
             // En algunos proyectos el modelo se crea en la raíz de app/
@@ -77,12 +79,11 @@ class MakeScaffoldCommand extends Command
             $this->error("No se encontró el modelo {$name}.");
         }
 
-        // 2. Crear el controlador.
+        // 2. Crear el controlador y sobrescribirlo con métodos CRUD.
         $this->call('make:controller', [
             'name' => $controllerName,
         ]);
 
-        // Sobrescribir el controlador con métodos CRUD.
         $controllerPath = app_path("Http/Controllers/{$controllerName}.php");
         $controllerContent = <<<EOT
 <?php
@@ -259,7 +260,7 @@ EOT;
 
         $this->info("Scaffold generado para la entidad {$name} exitosamente.");
 
-        // 4. Actualizar AppServiceProvider para registrar la vinculación de la interfaz con el repositorio.
+        // 4. Actualizar AppServiceProvider para registrar la vinculación.
         $providerPath = app_path("Providers/AppServiceProvider.php");
         $providerContent = file_get_contents($providerPath);
         $binding = "\$this->app->bind(\\App\\Repositories\\Contracts\\{$name}RepositoryInterface::class, \\App\\Repositories\\{$name}Repository::class);";
@@ -274,6 +275,44 @@ EOT;
             $this->info("Se ha registrado la vinculación en AppServiceProvider.");
         } else {
             $this->info("La vinculación ya existe en AppServiceProvider.");
+        }
+
+        // 5. Generar el archivo de rutas genérico en routes/api y actualizar routes/api.php.
+        $apiDir = base_path('routes/api');
+        if (!is_dir($apiDir)) {
+            mkdir($apiDir, 0755, true);
+        }
+        $routesFilePath = $apiDir . '/' . $prefix . '.php';
+        if (file_exists($routesFilePath)) {
+            $this->error("El archivo de rutas {$routesFilePath} ya existe. No se sobrescribirá.");
+        } else {
+            $routesContent = <<<EOT
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\\{$name}Controller;
+
+Route::group(['prefix' => '{$prefix}'], function () {
+    Route::get('/', [{$name}Controller::class, 'index'])->name('{$prefix}.index');
+    Route::post('/', [{$name}Controller::class, 'store'])->name('{$prefix}.store');
+    Route::get('/{PARAM}', [{$name}Controller::class, 'show'])->name('{$prefix}.show');
+    Route::put('/{PARAM}', [{$name}Controller::class, 'update'])->name('{$prefix}.update');
+    Route::delete('/{PARAM}', [{$name}Controller::class, 'destroy'])->name('{$prefix}.destroy');
+});
+EOT;
+            // Reemplazar el placeholder PARAM por el parámetro singular.
+            $routesContent = str_replace('PARAM', $parameter, $routesContent);
+            file_put_contents($routesFilePath, $routesContent);
+            $this->info("Archivo de rutas generado en routes/api/{$prefix}.php");
+        }
+
+        // Actualizar el archivo routes/api.php para requerir el nuevo archivo de rutas.
+        $mainRoutesPath = base_path('routes/api.php');
+        $mainRoutesContent = file_get_contents($mainRoutesPath);
+        $requireLine = "require __DIR__ . '/api/{$prefix}.php';";
+        if (strpos($mainRoutesContent, $requireLine) === false) {
+            file_put_contents($mainRoutesPath, "\n" . $requireLine, FILE_APPEND);
+            $this->info("Se ha actualizado routes/api.php para incluir {$prefix}.php.");
         }
     }
 }
