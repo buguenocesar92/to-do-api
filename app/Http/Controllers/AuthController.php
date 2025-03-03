@@ -51,15 +51,15 @@ class AuthController extends Controller
     public function me(): JsonResponse
     {
         $user = auth()->user(); // Carga relaciones adicionales si es necesario
-       /*  $roles = $user->getRoleNames(); */
-      /*   $permissions = $user->getAllPermissions()->pluck('name');
- */
+        $roles = $user->getRoleNames();
+        $permissions = $user->getAllPermissions()->pluck('name');
+
         return response()->json([
             'id'          => $user->id,
             'name'        => $user->name,
             'email'       => $user->email,
-          /*   'roles'       => $roles, */
-           /*  'permissions' => $permissions, */
+            'roles'       => $roles,
+            'permissions' => $permissions,
         ]);
     }
 

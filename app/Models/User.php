@@ -10,7 +10,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements JWTSubject
 {
-    use HasFactory, Notifiable ;
+    use HasFactory, Notifiable, HasRoles;
 
     protected $fillable = ['name', 'email', 'password', 'location_id'];
     protected $hidden = ['password', 'remember_token'];
