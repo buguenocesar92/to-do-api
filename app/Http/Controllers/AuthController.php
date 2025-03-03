@@ -34,8 +34,15 @@ class AuthController extends Controller
      */
     public function register(RegisterRequest $request): JsonResponse
     {
+        // 1. Crear el usuario
         $user = $this->authService->register($request->validated());
-        return response()->json($user, 201);
+
+        // 2. Auto-login con las credenciales
+        $credentials = $request->only('email', 'password');
+        $token = $this->authService->login($credentials);
+
+        // 3. Devolver respuesta estándar con tokens
+        return $this->authService->respondWithToken($token);
     }
 
     /**
@@ -43,17 +50,16 @@ class AuthController extends Controller
      */
     public function me(): JsonResponse
     {
-        $user = auth()->user()->load('location'); // Carga relaciones adicionales si es necesario
-        $roles = $user->getRoleNames();
-        $permissions = $user->getAllPermissions()->pluck('name');
-
+        $user = auth()->user(); // Carga relaciones adicionales si es necesario
+       /*  $roles = $user->getRoleNames(); */
+      /*   $permissions = $user->getAllPermissions()->pluck('name');
+ */
         return response()->json([
             'id'          => $user->id,
             'name'        => $user->name,
             'email'       => $user->email,
-            'location'    => $user->location,
-            'roles'       => $roles,
-            'permissions' => $permissions,
+          /*   'roles'       => $roles, */
+           /*  'permissions' => $permissions, */
         ]);
     }
 
