@@ -5,7 +5,7 @@ use App\Http\Controllers\PermissionController;
 
 Route::group([
     'prefix' => 'permissions',
-    'middleware' => 'auth:api',
+    'middleware' => ['auth:api', 'check_route_permission'],
 ], function () {
-    Route::get('/', [PermissionController::class, 'index'])->name('permission.index')->middleware('permission:permission.index');
+    Route::get('/', [PermissionController::class, 'index'])->name('permission.index');
 });

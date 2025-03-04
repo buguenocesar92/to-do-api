@@ -44,25 +44,31 @@ class RoleRepository
     public function getAllWithPermissions(): Collection
     {
         $permissionNames = config('permissions');
-
-        $roles = Role::with(['permissions:id,name', 'users:id,name,email'])->get()->map(function ($role) use ($permissionNames) {
+        $roles = Role::with(['permissions:id,name', 'users:id,name,email'])
+        ->get()
+        ->filter(function ($role) {
+            return strtolower($role->name) !== 'admin';
+        })
+        ->map(function ($role) use ($permissionNames) {
             return [
-                'id' => $role->id,
-                'name' => $role->name,
+                'id'          => $role->id,
+                'name'        => $role->name,
                 'permissions' => $role->permissions->map(function ($permission) use ($permissionNames) {
                     return [
-                        'id' => $permission->id,
-                        'name' => $permission->name,
+                        'id'            => $permission->id,
+                        'name'          => $permission->name,
                         'readable_name' => $permissionNames[$permission->name] ?? $permission->name,
                     ];
-                }),
-                'users' => $role->users->map(fn ($user) => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                ]),
+                })->values(), // reindexa la colección de permisos
+                'users'       => $role->users->map(function ($user) {
+                    return [
+                        'id'    => $user->id,
+                        'name'  => $user->name,
+                        'email' => $user->email,
+                    ];
+                })->values(), // reindexa la colección de usuarios
             ];
-        });
+        })->values(); // reindexa la colección principal
 
         return new Collection($roles); // Convierte la Support\Collection en Eloquent\Collection
     }
