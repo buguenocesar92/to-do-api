@@ -21,8 +21,11 @@ class UserRepository
 
     public function getAll(): Collection
     {
-        return $this->model->all();
+        return $this->model->whereDoesntHave('roles', function ($query) {
+            $query->where('name', 'admin');
+        })->get();
     }
+
 
     // Otros métodos según tus necesidades...
 }
