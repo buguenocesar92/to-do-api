@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\UpdateRolePermissionsRequest;
 use App\Services\RolePermissionService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 
 class RolePermissionController extends Controller
 {
@@ -45,6 +47,17 @@ class RolePermissionController extends Controller
         return response()->json([
             'message' => 'Role permissions updated successfully.',
             'role' => $updatedRole,
+        ]);
+    }
+
+    public function sync(Request $request)
+    {
+        Artisan::call('generate:route-permissions');
+        $output = Artisan::output();
+
+        return response()->json([
+            'message' => 'Sincronización completada.',
+            'output'  => $output,
         ]);
     }
 }

@@ -12,4 +12,6 @@ Route::group([
     Route::get('/with-permissions/{roleId}', [RolePermissionController::class, 'show'])->name('role.show');
     Route::put('/with-permissions/{roleId}', [RolePermissionController::class, 'updateRolePermissions'])->name('roles.update-permissions');
     Route::put('/{role}/users', [RoleController::class, 'updateUsers'])->name('roles.update-roles-users');
+    Route::post('/', [RoleController::class, 'store'])->name('roles.store');
+    Route::post('/with-permissions/sync', [RolePermissionController::class, 'sync'])->name('roles.sync');
 });
