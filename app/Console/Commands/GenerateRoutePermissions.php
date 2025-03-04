@@ -10,12 +10,21 @@ use Spatie\Permission\Models\Permission;
 class GenerateRoutePermissions extends Command
 {
     protected $signature = 'generate:route-permissions';
-    protected $description = 'Genera las rutas de la aplicación y crea una relación con los permisos';
+    protected $description = 'Genera las rutas de la aplicación y crea una relación con los permisos, omitiendo permisos excluidos';
 
     public function handle()
     {
         $routes = Route::getRoutes();
         $count = 0;
+        // Lista de permisos que no se deben crear
+        $excludedPermissions = [
+            'csrfcookiecontroller.show',
+            'authcontroller.login',
+            'authcontroller.register',
+            'authcontroller.logout',
+            'authcontroller.refresh',
+            'authcontroller.me',
+        ];
 
         foreach ($routes as $route) {
             $action = $route->getAction();
@@ -34,15 +43,19 @@ class GenerateRoutePermissions extends Command
                     $permissionName = null;
                 }
             } else {
-                // Para rutas sin controlador se deja nulo o se asigna un valor genérico
+                // Para rutas sin controlador se asigna un valor nulo o genérico
                 $permissionName = null;
             }
 
-            // Buscamos o creamos el permiso correspondiente y obtenemos su ID
+            // Si el nombre del permiso está en la lista de excluidos, se omite su creación
             $permissionId = null;
-            if ($permissionName) {
+            if ($permissionName && !in_array($permissionName, $excludedPermissions)) {
                 $permission = Permission::firstOrCreate(['name' => $permissionName]);
                 $permissionId = $permission->id;
+            } else {
+                // En caso de estar excluido, se establece el nombre y el ID a null para no crear el permiso
+                $permissionName = null;
+                $permissionId = null;
             }
 
             // Verificamos si la ruta ya está registrada en la tabla
@@ -61,3 +74,4 @@ class GenerateRoutePermissions extends Command
         $this->info("Total de rutas procesadas: {$count}");
     }
 }
+
