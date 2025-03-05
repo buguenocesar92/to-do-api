@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Repositories\RoleRepository;
 use App\Repositories\PermissionRepository;
 
-
 class RolePermissionService
 {
     private RoleRepository $roleRepository;
@@ -36,5 +35,13 @@ class RolePermissionService
     public function updateRolePermissions(int $roleId, array $permissions): array
     {
         return $this->roleRepository->updatePermissions($roleId, $permissions);
+    }
+
+    /**
+     * Eliminar un rol removiéndolo de los usuarios (sin borrar a los usuarios) y sus relaciones.
+     */
+    public function deleteRole(int $roleId): void
+    {
+        $this->roleRepository->deleteRole($roleId);
     }
 }

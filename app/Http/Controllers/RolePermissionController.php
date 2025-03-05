@@ -60,4 +60,18 @@ class RolePermissionController extends Controller
             'output'  => $output,
         ]);
     }
+
+      /**
+     * Eliminar un rol y removerlo de los usuarios asociados (sin borrar los usuarios).
+     *
+     * Advertencia: Esta acción solo remueve el rol de los usuarios y elimina el rol,
+     * sin borrar los registros de los usuarios.
+     */
+    public function destroy(int $roleId): JsonResponse
+    {
+        $this->rolePermissionService->deleteRole($roleId);
+        return response()->json([
+            'message' => 'Rol eliminado y removido de usuarios correctamente.',
+        ]);
+    }
 }

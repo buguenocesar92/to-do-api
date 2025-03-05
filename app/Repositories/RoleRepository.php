@@ -123,4 +123,26 @@ class RoleRepository
         $role = Role::findOrFail($roleId);
         $role->users()->sync($userIds); // Sincroniza los usuarios, eliminando los que no estén en la lista
     }
+
+        /**
+     * Elimina un rol removiéndolo de los usuarios y desvinculando sus permisos.
+     *
+     * Advertencia: En este método se remueve el rol de los usuarios mediante removeRole() sin eliminar los usuarios.
+     */
+    public function deleteRole(int $roleId): void
+    {
+        $role = Role::findOrFail($roleId);
+
+        // Desvincula todos los permisos asignados (elimina registros en role_has_permissions)
+        $role->permissions()->detach();
+
+        // Remueve el rol de cada usuario sin eliminar el usuario
+        foreach ($role->users as $user) {
+            $user->removeRole($role);
+        }
+
+        // Elimina el rol
+        $role->delete();
+    }
+
 }
